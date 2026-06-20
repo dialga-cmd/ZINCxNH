@@ -1,0 +1,125 @@
+'use client';
+
+import { useState, KeyboardEvent } from 'react';
+import { Button } from '@/components/ui/button';
+import { Send, Zap, ChevronDown, AlertCircle, Gauge } from 'lucide-react';
+
+interface ChatInputProps {
+  onSend: (message: string, model?: string) => void;
+  isLoading?: boolean;
+  disabled?: boolean;
+  providerStatus?: Array<{ name: string; available: boolean; resetAt?: number }>;
+  quotaRemaining?: {
+    daily: number;
+    hourly: number;
+    dailyLimit: number;
+    hourlyLimit: number;
+  };
+}
+
+export function ChatInput({
+  onSend,
+  isLoading = false,
+  disabled = false,
+  providerStatus = [],
+  quotaRemaining = { daily: 0, hourly: 0, dailyLimit: 30, hourlyLimit: 10 }
+}: ChatInputProps) {
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = () => {
+    if (message.trim() && !isLoading) {
+      onSend(message.trim());
+      setMessage('');
+    }
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const limitedProviders = providerStatus.filter(p => !p.available);
+
+  return (
+    <div className="p-8 bg-black">
+      <div className="max-w-4xl mx-auto">
+        <div className="relative group">
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="INPUT SOURCE CODE..."
+            disabled={disabled || isLoading}
+            rows={4}
+            className="
+              w-full resize-none
+              bg-zinc-900 border-2 border-zinc-800
+              px-6 py-5 pb-16
+              text-white placeholder-zinc-700
+              focus:outline-none focus:border-white
+              disabled:opacity-50 disabled:cursor-not-allowed
+              font-mono text-sm font-bold
+              transition-all
+            "
+          />
+
+          <div className="absolute right-4 bottom-4 flex items-center gap-3">
+            {/* Quota Meter */}
+            <div className="flex items-center gap-3 mr-2">
+              <div className="flex flex-col items-end">
+                <div className="flex items-center gap-2 mb-1">
+                  <Gauge className="w-3 h-3 text-zinc-600" />
+                  <span className="text-[8px] font-black uppercase tracking-[0.15em] text-zinc-500">
+                    DAILY: {quotaRemaining.daily}/{quotaRemaining.dailyLimit}
+                  </span>
+                </div>
+                <div className="w-24 bg-zinc-900 h-1">
+                  <div
+                    className={`h-full transition-all ${quotaRemaining.dailyLimit > 0 && quotaRemaining.daily < 5 ? 'bg-red-500' : 'bg-white'}`}
+                    style={{ width: `${quotaRemaining.dailyLimit > 0 ? (quotaRemaining.daily / quotaRemaining.dailyLimit) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <Button
+              onClick={handleSubmit}
+              disabled={!message.trim() || isLoading || disabled}
+              className="px-6 py-2.5 min-h-0 h-auto text-xs"
+            >
+              {isLoading ? (
+                <>
+                  <Zap className="w-3.5 h-3.5 animate-pulse mr-2" />
+                  ANALYZING...
+                </>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5 mr-2" />
+                  REVIEW
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Dynamic Status / Rate Limit Alert */}
+        <div className="mt-4 flex flex-col items-center gap-2">
+          {limitedProviders.length > 0 ? (
+            <div className="flex items-center gap-2 px-4 py-2 border-2 border-red-600 bg-red-950/20 text-red-500 animate-pulse">
+              <AlertCircle className="w-3 h-3" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+                {`RATE_LIMIT_ACTIVE // ${limitedProviders.map(p => p.name.toUpperCase()).join(' & ')} // RETRY_SOON`}
+              </span>
+            </div>
+          ) : (
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">
+              {`SYSTEM_STATUS: READY | AI_ENGINE: ACTIVE`}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
