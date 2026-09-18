@@ -1,8 +1,8 @@
 import { CodeReviewResult } from './types';
 import { parseCodeReviewResponse } from './code-reviewer';
 
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.NEXT_PUBLIC_GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 // Single source of truth for the system prompt — used in all API calls
@@ -57,7 +57,7 @@ function buildRequestBody(code: string) {
 export async function reviewCode(code: string, apiKey?: string): Promise<CodeReviewResult> {
   const key = apiKey || GEMINI_API_KEY;
   if (!key) {
-    throw new Error('Gemini API key not configured. Set NEXT_PUBLIC_GEMINI_API_KEY environment variable.');
+    throw new Error('Gemini API key not configured. Set GEMINI_API_KEY environment variable.');
   }
 
   const url = `${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(key)}`;
