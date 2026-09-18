@@ -1,14 +1,14 @@
 # 💎 ZINC × NH // INDUSTRIAL CODE REVIEWER
 
-An elite, high-performance AI code review platform engineered for stability, speed, and resilience. Built with **Next.js 16**, **Firebase**, **Groq**, and **Hugging Face**.
+An elite, high-performance AI code review platform engineered for stability, speed, and resilience. Built with **Next.js 16**, **Firebase**, **Gemini**, and **Hugging Face**.
 
 ---
 
 ## ⚡ Core Features
 
-### 🤖 Resilient AI Pipeline (Groq × Hugging Face)
-- **Groq Primary Cluster**: Leveraging Llama 3.3 70B for ultra-fast, high-accuracy analysis.
-- **Hugging Face Backup Cluster**: Seamlessly falls back to Qwen 2.5, StarCoder 2, or Llama 3.2 if Groq is busy.
+### 🤖 Resilient AI Pipeline (Gemini × Hugging Face)
+- **Gemini Primary Cluster**: Leveraging Gemini 2.5 Flash for fast, high-accuracy analysis.
+- **Hugging Face Backup Cluster**: Seamlessly falls back to Qwen 2.5, StarCoder 2, or Llama 3.2 if Gemini is busy.
 - **Multi-Key Rotation**: Supports unlimited API keys for both providers to bypass rate limits and support 1,000+ users.
 - **Global Response Cache**: SHA-256 hashed Firestore cache that serves identical queries instantly, saving your tokens.
 
@@ -33,7 +33,7 @@ An elite, high-performance AI code review platform engineered for stability, spe
 | **Backend** | Next.js API Routes, Firebase Admin SDK |
 | **Database** | Firebase Firestore (Real-time persistence) |
 | **Auth** | Firebase Authentication |
-| **AI (Primary)** | Groq (Llama-3.3-70b-versatile) |
+| **AI (Primary)** | Gemini (gemini-2.5-flash) |
 | **AI (Backup)** | Hugging Face (Qwen-2.5-Coder-32B, StarCoder-2) |
 | **Graphics** | Three.js / GLSL Shaders |
 
@@ -52,9 +52,9 @@ npm install
 Create a `.env.local` file with the following structure:
 
 ```env
-# 🤖 GROQ: Comma-separated keys for rotation
-GROQ_API_KEY=gsk_key1,gsk_key2...
-GROQ_MODEL=llama-3.3-70b-versatile
+# 🤖 GEMINI: Comma-separated keys for rotation
+GEMINI_API_KEY=gemini_key1,gemini_key2...
+GEMINI_MODEL=gemini-2.5-flash
 
 # 🤖 HUGGING FACE: Comma-separated keys for backup
 HF_API_KEY=hf_key1,hf_key2...
@@ -99,7 +99,7 @@ service cloud.firestore {
 
 ## 📈 Scalability Guide
 This platform is designed to handle **1,000+ active users** on a $0 budget:
-1. **Model Rotation**: If Groq hits a limit, it instantly tries the Hugging Face cluster.
+1. **Model Rotation**: If Gemini hits a limit, it instantly tries the Hugging Face cluster.
 2. **Key Rotation**: Adding just 2-3 free API keys to the rotation list effectively doubles your capacity.
 3. **Caching**: Common queries like "How to loop in JS" hit the Firestore cache, costing $0 in AI tokens.
 

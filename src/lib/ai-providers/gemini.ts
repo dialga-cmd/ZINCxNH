@@ -1,9 +1,9 @@
 import { CodeReviewResult } from './types';
 import { parseCodeReviewResponse } from './code-reviewer';
 
-const GROQ_API_KEY = process.env.NEXT_PUBLIC_GROQ_API_KEY;
-const GROQ_MODEL = process.env.NEXT_PUBLIC_GROQ_MODEL || 'llama-3.3-70b-versatile';
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+const GEMINI_MODEL = process.env.NEXT_PUBLIC_GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 // Single source of truth for the system prompt — used in all API calls
 const SYSTEM_PROMPT = `You are ZINC, a strict technical assistant embedded in a code review platform.
@@ -36,95 +36,80 @@ TONE:
 - No unnecessary pleasantries
 - Never apologize for refusing non-tech queries`;
 
-export async function reviewCode(code: string, apiKey?: string): Promise<CodeReviewResult> {
-  const key = apiKey || GROQ_API_KEY;
-  if (!key) {
-    throw new Error('Groq API key not configured. Set NEXT_PUBLIC_GROQ_API_KEY environment variable.');
-  }
-
-  const requestBody = {
-    model: GROQ_MODEL,
-    messages: [
-      {
-        role: 'system',
-        content: SYSTEM_PROMPT,
-      },
+function buildRequestBody(code: string) {
+  return {
+    contents: [
       {
         role: 'user',
-        content: code,
+        parts: [{ text: code }],
       },
     ],
-    temperature: 0.2,
-    max_tokens: 2048,
-    top_p: 0.9,
+    systemInstruction: {
+      parts: [{ text: SYSTEM_PROMPT }],
+    },
+    generationConfig: {
+      temperature: 0.2,
+      maxOutputTokens: 2048,
+    },
   };
+}
+
+export async function reviewCode(code: string, apiKey?: string): Promise<CodeReviewResult> {
+  const key = apiKey || GEMINI_API_KEY;
+  if (!key) {
+    throw new Error('Gemini API key not configured. Set NEXT_PUBLIC_GEMINI_API_KEY environment variable.');
+  }
+
+  const url = `${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(key)}`;
 
   try {
-    const response = await fetch(GROQ_API_URL, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`,
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(buildRequestBody(code)),
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
 
-      if (response.status === 401) throw new Error('Invalid Groq API key');
-      if (response.status === 429) throw new Error('Groq rate limit exceeded');
-      if (response.status === 500) throw new Error('Groq server error. Please try again.');
+      if (response.status === 401 || response.status === 403) throw new Error('Invalid Gemini API key');
+      if (response.status === 429) throw new Error('Gemini rate limit exceeded');
+      if (response.status === 500) throw new Error('Gemini server error. Please try again.');
 
       const errorMessage = errorData.error?.message || `API request failed with status ${response.status}`;
       throw new Error(errorMessage);
     }
 
     const data = await response.json();
+    const generatedText = data.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') || '';
 
-    if (!data.choices || data.choices.length === 0 || !data.choices[0].message?.content) {
-      throw new Error('Empty response from Groq API');
+    if (!generatedText) {
+      throw new Error('Empty response from Gemini API');
     }
 
-    const generatedText = data.choices[0].message.content;
     return parseCodeReviewResponse(generatedText);
   } catch (error) {
     if (error instanceof Error) throw error;
-    throw new Error('Failed to connect to Groq API');
+    throw new Error('Failed to connect to Gemini API');
   }
 }
 
 export async function* reviewCodeStream(code: string, apiKey?: string): AsyncGenerator<string> {
-  const key = apiKey || GROQ_API_KEY;
+  const key = apiKey || GEMINI_API_KEY;
   if (!key) {
-    throw new Error('Groq API key not configured');
+    throw new Error('Gemini API key not configured');
   }
 
-  const requestBody = {
-    model: GROQ_MODEL,
-    messages: [
-      {
-        role: 'system',
-        content: SYSTEM_PROMPT,
-      },
-      {
-        role: 'user',
-        content: code,
-      },
-    ],
-    temperature: 0.2,
-    max_tokens: 2048,
-    top_p: 0.9,
-    stream: true,
-  };
+  const url = `${GEMINI_BASE_URL}/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key)}`;
 
-  const response = await fetch(GROQ_API_URL, {
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${key}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(requestBody),
+    body: JSON.stringify(buildRequestBody(code)),
   });
 
   if (!response.ok) {
@@ -148,16 +133,14 @@ export async function* reviewCodeStream(code: string, apiKey?: string): AsyncGen
 
     for (const line of lines) {
       const trimmedLine = line.trim();
-      if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
+      if (!trimmedLine || !trimmedLine.startsWith('data: ') || trimmedLine === 'data: [DONE]') continue;
 
-      if (trimmedLine.startsWith('data: ')) {
-        try {
-          const data = JSON.parse(trimmedLine.substring(6));
-          const text = data.choices?.[0]?.delta?.content;
-          if (text) yield text;
-        } catch (e) {
-          console.error('Error parsing Groq SSE data', e);
-        }
+      try {
+        const data = JSON.parse(trimmedLine.substring(6));
+        const text = data.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') || '';
+        if (text) yield text;
+      } catch (e) {
+        console.error('Error parsing Gemini SSE data', e);
       }
     }
   }

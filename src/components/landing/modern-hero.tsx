@@ -67,7 +67,7 @@ export function ModernHero({ onGetStarted }: ModernHeroProps) {
           >
             <GlassCard className="inline-flex items-center gap-2 px-4 py-2 mb-8">
               <Zap className="w-4 h-4 text-cyan-400" />
-              <span className="text-sm text-cyan-300 font-medium">Powered by Gemini & Groq AI</span>
+              <span className="text-sm text-cyan-300 font-medium">Powered by Gemini AI</span>
             </GlassCard>
           </motion.div>
 

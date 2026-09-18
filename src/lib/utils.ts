@@ -102,7 +102,7 @@ export function isTechnicalQuery(text: string): boolean {
     'server', 'client', 'frontend', 'backend', 'fullstack', 'devops', 'ci/cd',
     'docker', 'kubernetes', 'cloud', 'aws', 'gcp', 'azure', 'vercel', 'netlify',
     'auth', 'authentication', 'authorization', 'jwt', 'oauth', 'session', 'cookie',
-    'firebase', 'groq', 'gemini', 'openai', 'llm', 'ai', 'ml', 'model',
+    'firebase', 'gemini', 'openai', 'llm', 'ai', 'ml', 'model',
     // Actions
     'develop', 'program', 'build', 'deploy', 'test', 'debug', 'refactor',
     'fix', 'implement', 'create', 'update', 'delete', 'read', 'write', 'fetch',

@@ -5,8 +5,8 @@ import { getCachedReview, setCachedReview } from '@/lib/storage/cache-storage';
 import { checkAndIncrementRateLimit } from '@/lib/rate-limit-server';
 
 // Server-side API keys (not exposed to client)
-const GROQ_API_KEYS = (process.env.GROQ_API_KEY || '').split(',').filter(k => k.trim());
-const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+const GEMINI_API_KEYS = (process.env.GEMINI_API_KEY || '').split(',').filter(k => k.trim());
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const HF_API_KEYS = (process.env.HF_API_KEY || '').split(',').filter(k => k.trim());
 const HF_MODELS = [
   'Qwen/Qwen2.5-Coder-32B-Instruct',
@@ -14,7 +14,7 @@ const HF_MODELS = [
   'meta-llama/Llama-3.2-3B-Instruct'
 ];
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const HF_API_URL_PREFIX = 'https://api-inference.huggingface.co/models/';
 
 // Rate limit tracking (in-memory for server instance)
@@ -84,41 +84,43 @@ async function tryHuggingFace(code: string, apiKey: string, model: string): Prom
   return parseCodeReviewResponse(text);
 }
 
-async function tryGroq(code: string, apiKey: string): Promise<CodeReviewResult> {
-  const response = await fetch(GROQ_API_URL, {
+async function tryGemini(code: string, apiKey: string): Promise<CodeReviewResult> {
+  const key = encodeURIComponent(apiKey.trim());
+  const response = await fetch(`${GEMINI_API_URL}/${GEMINI_MODEL}:generateContent?key=${key}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: [
+      contents: [
         {
-          role: 'system',
-          // Single source of truth — imported from code-reviewer.ts
-          content: SYSTEM_PROMPT,
+          role: 'user',
+          parts: [{ text: code }],
         },
-        { role: 'user', content: code },
       ],
-      temperature: 0.2,
-      max_tokens: 2048,
-      top_p: 0.9,
+      systemInstruction: {
+        // Single source of truth — imported from code-reviewer.ts
+        parts: [{ text: SYSTEM_PROMPT }],
+      },
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 2048,
+      },
     }),
   });
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     if (response.status === 429) {
-      recordRateLimit('groq', 60);
-      throw new Error('Groq rate limit exceeded');
+      recordRateLimit('gemini', 60);
+      throw new Error('Gemini rate limit exceeded');
     }
-    throw new Error(data.error?.message || `Groq failed: ${response.status}`);
+    throw new Error(data.error?.message || `Gemini failed: ${response.status}`);
   }
 
   const data = await response.json();
-  const text = data.choices?.[0]?.message?.content;
-  if (!text) throw new Error('Empty Groq response');
+  const text = data.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') || '';
+  if (!text) throw new Error('Empty Gemini response');
   return parseCodeReviewResponse(text);
 }
 
@@ -157,14 +159,14 @@ export async function POST(request: NextRequest) {
 
     const errors: string[] = [];
 
-    // Try Groq first (multiple keys for rotation)
-    for (const key of GROQ_API_KEYS) {
+    // Try Gemini first (multiple keys for rotation)
+    for (const key of GEMINI_API_KEYS) {
       try {
-        const result = await tryGroq(code, key.trim());
+        const result = await tryGemini(code, key.trim());
         await setCachedReview(prompt, result);
         return NextResponse.json({ ...result, quota: rateLimitResult.remaining });
       } catch (e) {
-        errors.push(`Groq: ${e instanceof Error ? e.message : 'failed'}`);
+        errors.push(`Gemini: ${e instanceof Error ? e.message : 'failed'}`);
       }
     }
 

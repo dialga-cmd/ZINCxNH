@@ -80,7 +80,7 @@ export default function Home() {
                 {
                   icon: <Cpu className="w-8 h-8" />,
                   title: "RESILIENT_AI_ENGINE",
-                  desc: "Powered by Groq and Hugging Face clusters with automatic key rotation for guaranteed uptime."
+                  desc: "Powered by Gemini and Hugging Face clusters with automatic key rotation for guaranteed uptime."
                 },
                 {
                   icon: <Zap className="w-8 h-8" />,
